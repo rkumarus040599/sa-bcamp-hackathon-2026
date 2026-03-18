@@ -1,0 +1,47 @@
+1.	Why do you need an AI agent when AWS already has Auto Scaling?
+They want to test whether your system adds value beyond built-in automation.
+Good answer idea:
+•	Auto Scaling reacts to single metrics
+•	AI agent can correlate multiple signals
+•	Logs + metrics + events
+•	Perform root cause analysis
+Example:
+CPU spike may be due to
+CPU spike occurs
+Auto Scaling logic:
+IF CPU > 70%
+→ Add instance
+But the spike might be caused by:
+•	database connection bottleneck
+•	memory leak
+•	bad deployment
+•	traffic anomaly
+•	misconfigured cache
+•	Auto Scaling just adds instances, while AI diagnoses the real issue.
+The agent correlates metrics from CloudWatch, logs from S3, and historical incidents from DynamoDB, then uses reasoning through Amazon Bedrock to identify patterns and determine the most likely root cause before triggering remediation
+________________________________________
+Q2. Why did you choose EventBridge instead of SNS or SQS?
+Expected reasoning:
+•	Event-driven architecture
+•	Event filtering
+•	Multiple consumers
+•	Decoupled services
+________________________________________
+Q3. Why Lambda instead of containers or EC2?
+Answer idea:
+•	serverless
+•	fast event handling
+•	automatic scaling
+•	cost efficient
+________________________________________
+Q4. Why Step Functions for remediation?
+They want to test orchestration thinking.
+Benefits:
+•	workflow orchestration
+•	retries
+•	state tracking
+•	conditional actions
+•	human approval step if needed
+
+•	Step Functions orchestrates the remediation workflow by coordinating multiple steps, handling retries automatically, tracking workflow state, making conditional decisions based on the root cause, and allowing human approval when critical actions are required.
+
