@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.env.*
+node_modules
+dist
+build
+.cache
+coverage
+.venv
+cdk.out
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+

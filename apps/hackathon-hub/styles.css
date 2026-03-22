@@ -1,0 +1,254 @@
+:root {
+  --bg: #f7f2e8;
+  --panel: rgba(255, 252, 245, 0.84);
+  --panel-strong: #fff9ef;
+  --ink: #1f2430;
+  --muted: #5a6270;
+  --line: rgba(31, 36, 48, 0.12);
+  --brand: #c35a1d;
+  --brand-soft: rgba(195, 90, 29, 0.16);
+  --accent: #1d6f72;
+  --shadow: 0 18px 40px rgba(51, 41, 22, 0.12);
+  --radius: 24px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(195, 90, 29, 0.18), transparent 32%),
+    radial-gradient(circle at top right, rgba(29, 111, 114, 0.2), transparent 28%),
+    linear-gradient(180deg, #fffaf2 0%, var(--bg) 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(31, 36, 48, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 36, 48, 0.035) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 90%);
+  pointer-events: none;
+}
+
+.page-shell {
+  width: min(1120px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 56px;
+}
+
+.hero,
+.panel,
+.timeline-step,
+.track-card {
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 8px);
+  background: linear-gradient(140deg, rgba(255, 249, 239, 0.96), rgba(255, 255, 255, 0.78));
+  animation: rise 0.8s ease both;
+}
+
+.eyebrow,
+.section-kicker,
+.panel-label {
+  margin: 0 0 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--brand);
+}
+
+.hero-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
+  gap: 24px;
+  align-items: end;
+}
+
+h1,
+h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 0.98;
+}
+
+h1 {
+  max-width: 12ch;
+  font-size: clamp(2.8rem, 6vw, 5.2rem);
+}
+
+h2 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.lede,
+.panel p,
+.timeline-step p,
+.track-card p,
+.hero-panel p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.lede {
+  max-width: 64ch;
+  margin: 18px 0 0;
+  font-size: 1.02rem;
+}
+
+.hero-panel,
+.panel,
+.track-card,
+.timeline-step {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.hero-panel {
+  padding: 22px;
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.section-heading {
+  margin-bottom: 16px;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.track-card {
+  padding: 20px;
+  animation: rise 0.7s ease both;
+}
+
+.track-card:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.track-card:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.track-card .badge {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.split-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 16px;
+}
+
+.panel {
+  padding: 24px;
+}
+
+.accent-panel {
+  background:
+    linear-gradient(145deg, rgba(29, 111, 114, 0.12), rgba(255, 249, 239, 0.88));
+}
+
+.checklist {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+
+.checklist li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--panel-strong);
+  border: 1px solid rgba(31, 36, 48, 0.08);
+}
+
+.checklist li::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--brand), #efb35f);
+  box-shadow: 0 0 0 6px rgba(195, 90, 29, 0.1);
+  flex: 0 0 12px;
+}
+
+.timeline {
+  display: grid;
+  gap: 14px;
+}
+
+.timeline-step {
+  padding: 18px 20px;
+  border-left: 5px solid var(--accent);
+  animation: rise 0.75s ease both;
+}
+
+.timeline-step strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1rem;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 840px) {
+  .hero-copy,
+  .card-grid,
+  .split-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .page-shell {
+    width: min(100% - 20px, 1120px);
+    padding-top: 20px;
+  }
+
+  .hero,
+  .panel,
+  .track-card,
+  .timeline-step {
+    border-radius: 20px;
+  }
+}
+

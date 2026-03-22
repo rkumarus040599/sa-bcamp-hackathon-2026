@@ -1,0 +1,25 @@
+{
+  "app": "python3 app.py",
+  "watch": {
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "requirements*.txt",
+      "source.bat",
+      "**/__pycache__",
+      "**/*.pyc",
+      ".venv",
+      "cdk.out"
+    ]
+  },
+  "context": {
+    "projectName": "autonomous-ops-demo",
+    "eventBusName": "autonomous-ops-demo",
+    "foundationModelId": "openai.gpt-oss-120b-1:0",
+    "enableLiveRemediation": "false"
+  }
+}
+

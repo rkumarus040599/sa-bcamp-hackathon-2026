@@ -1,0 +1,132 @@
+{
+  "Comment": "Autonomous cloud operations remediation workflow for the hackathon demo.",
+  "StartAt": "SelectRemediationPath",
+  "States": {
+    "SelectRemediationPath": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.decision.action.type",
+          "StringEquals": "scale_out_asg",
+          "Next": "ScaleOutAutoScalingGroup"
+        },
+        {
+          "Variable": "$.decision.action.type",
+          "StringEquals": "restart_service_via_ssm",
+          "Next": "RestartServiceViaSsm"
+        },
+        {
+          "Variable": "$.decision.action.type",
+          "StringEquals": "patch_instance_via_ssm",
+          "Next": "PatchInstanceViaSsm"
+        },
+        {
+          "Variable": "$.decision.action.type",
+          "StringEquals": "optimize_cost_recommendation",
+          "Next": "PublishCostRecommendation"
+        }
+      ],
+      "Default": "NotifyNoAutomatedAction"
+    },
+    "ScaleOutAutoScalingGroup": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:autoscaling:updateAutoScalingGroup",
+      "Parameters": {
+        "AutoScalingGroupName.$": "$.decision.action.parameters.autoScalingGroupName",
+        "DesiredCapacity.$": "$.decision.action.parameters.desiredCapacity"
+      },
+      "ResultPath": "$.remediationExecution",
+      "Next": "WaitForStabilization"
+    },
+    "RestartServiceViaSsm": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+      "Parameters": {
+        "DocumentName": "AWS-RunShellScript",
+        "InstanceIds.$": "States.Array($.decision.action.parameters.instanceId)",
+        "Parameters": {
+          "commands.$": "States.Array($.decision.action.parameters.command)"
+        }
+      },
+      "ResultPath": "$.remediationExecution",
+      "Next": "WaitForStabilization"
+    },
+    "PatchInstanceViaSsm": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:ssm:startAutomationExecution",
+      "Parameters": {
+        "DocumentName.$": "$.decision.action.parameters.documentName",
+        "Parameters": {
+          "InstanceId.$": "States.Array($.decision.action.parameters.instanceId)"
+        }
+      },
+      "ResultPath": "$.remediationExecution",
+      "Next": "WaitForStabilization"
+    },
+    "PublishCostRecommendation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+      "Parameters": {
+        "TopicArn": "<SNS_TOPIC_ARN>",
+        "Subject": "Cost optimization recommendation generated",
+        "Message.$": "$.decision.summary"
+      },
+      "ResultPath": "$.remediationExecution",
+      "Next": "VerifyRemediation"
+    },
+    "NotifyNoAutomatedAction": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+      "Parameters": {
+        "TopicArn": "<SNS_TOPIC_ARN>",
+        "Subject": "No automated action taken",
+        "Message.$": "$.decision.summary"
+      },
+      "ResultPath": "$.remediationExecution",
+      "Next": "VerifyRemediation"
+    },
+    "WaitForStabilization": {
+      "Type": "Wait",
+      "Seconds": 90,
+      "Next": "VerifyRemediation"
+    },
+    "VerifyRemediation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "<REMEDIATION_VERIFIER_LAMBDA_ARN>",
+        "Payload.$": "$"
+      },
+      "ResultSelector": {
+        "verification.$": "$.Payload"
+      },
+      "ResultPath": "$.verificationResult",
+      "Next": "ResolvedChoice"
+    },
+    "ResolvedChoice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.verificationResult.verification.resolved",
+          "BooleanEquals": true,
+          "Next": "MarkSuccess"
+        }
+      ],
+      "Default": "EscalateToOperators"
+    },
+    "EscalateToOperators": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::aws-sdk:sns:publish",
+      "Parameters": {
+        "TopicArn": "<SNS_TOPIC_ARN>",
+        "Subject": "Manual intervention required",
+        "Message.$": "$.verificationResult.verification.summary"
+      },
+      "End": true
+    },
+    "MarkSuccess": {
+      "Type": "Succeed"
+    }
+  }
+}
+

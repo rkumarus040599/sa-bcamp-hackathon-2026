@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "actions": [
+    {
+      "type": "scale_out_asg",
+      "risk": "low",
+      "description": "Increase desired capacity on the application Auto Scaling group.",
+      "requiredParameters": [
+        "autoScalingGroupName",
+        "desiredCapacity"
+      ]
+    },
+    {
+      "type": "restart_service_via_ssm",
+      "risk": "medium",
+      "description": "Restart a service on a managed EC2 instance with Systems Manager.",
+      "requiredParameters": [
+        "instanceId",
+        "command"
+      ]
+    },
+    {
+      "type": "patch_instance_via_ssm",
+      "risk": "medium",
+      "description": "Run a pre-approved patch or repair automation document.",
+      "requiredParameters": [
+        "instanceId",
+        "documentName"
+      ]
+    },
+    {
+      "type": "optimize_cost_recommendation",
+      "risk": "low",
+      "description": "Create an operator-facing cost optimization recommendation.",
+      "requiredParameters": []
+    },
+    {
+      "type": "notify_only",
+      "risk": "none",
+      "description": "Notify operators without making any change.",
+      "requiredParameters": []
+    }
+  ]
+}
+

@@ -1,0 +1,30 @@
+{
+  "version": "0",
+  "id": "3cdb7cb9-0ca3-47ce-8e98-hackathon-demo",
+  "detail-type": "CloudWatch Alarm State Change",
+  "source": "aws.cloudwatch",
+  "account": "123456789012",
+  "time": "2026-03-20T18:00:00Z",
+  "region": "us-west-2",
+  "resources": [
+    "arn:aws:cloudwatch:us-west-2:123456789012:alarm:demo-app-cpu-high"
+  ],
+  "detail": {
+    "alarmName": "demo-app-cpu-high",
+    "state": {
+      "value": "ALARM",
+      "reason": "Threshold Crossed: 1 out of the last 1 datapoints was greater than the threshold."
+    },
+    "incidentHints": {
+      "service": "orders-api",
+      "environment": "hackathon",
+      "autoScalingGroupName": "orders-api-asg",
+      "logGroupName": "/aws/ec2/orders-api/app",
+      "metricNamespace": "AWS/EC2",
+      "metricName": "CPUUtilization",
+      "dimensionName": "AutoScalingGroupName",
+      "dimensionValue": "orders-api-asg"
+    }
+  }
+}
+
