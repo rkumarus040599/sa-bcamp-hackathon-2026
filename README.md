@@ -112,6 +112,119 @@ cdk diff --profile YOUR_PROFILE
 cdk destroy --profile YOUR_PROFILE
 ```
 
+## Run the deployed demo
+
+After the phase-1 stack is deployed, teammates can run the same demo flow in their own AWS accounts.
+
+### What the phase-1 demo proves
+
+This deployment demonstrates the safe autonomous-ops loop:
+
+`synthetic incident -> EventBridge -> Lambda triage -> Bedrock decision -> Step Functions -> DynamoDB/S3 writeback`
+
+By default, the stack runs in `notify-only-safe-mode`, which means it proves the reasoning and workflow path without making live infrastructure changes.
+
+### Open these AWS console pages first
+
+In your target region, open:
+
+- CloudFormation for `AutonomousOpsPhaseOneStack`
+- EventBridge for the deployed custom event bus
+- Step Functions for the deployed remediation workflow
+- Lambda for the deployed triage function
+- DynamoDB for the deployed incident table
+- S3 for the deployed knowledge bucket
+
+You can get the exact deployed names from the CloudFormation stack outputs:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name AutonomousOpsPhaseOneStack \
+  --profile YOUR_PROFILE \
+  --region YOUR_REGION
+```
+
+### Confirm the clean starting state
+
+Before triggering the incident:
+
+- Step Functions should have no new execution for this run yet
+- DynamoDB should have zero or only old historical incidents
+- S3 should already contain the sample runbook in `runbooks/orders-api/`
+
+### Trigger the incident
+
+From the repo root:
+
+```bash
+aws events put-events \
+  --profile YOUR_PROFILE \
+  --region YOUR_REGION \
+  --entries file://data/sample-events/cpu-spike-custom-event.json
+```
+
+This sends a synthetic CPU-spike style event into the custom EventBridge bus and starts the phase-1 autonomous workflow.
+
+### What to show in the demo
+
+1. Start at the CloudFormation outputs and point out that the stack is in safe phase-1 mode.
+2. Show the knowledge bucket already contains the sample domain runbook.
+3. Trigger the synthetic incident with `aws events put-events`.
+4. Open Step Functions and show that a new execution appears for the remediation workflow.
+5. Open the execution and explain that the system received the event, triaged the incident, called Bedrock, and chose a bounded next step.
+6. Explain that phase 1 is intentionally deployed in `notify-only-safe-mode`, so it proves the agent loop without changing infrastructure.
+7. Open DynamoDB and show that a new incident record has been written.
+8. Open S3 and show that a new reasoning artifact appears under `incidents/reasoning/`.
+9. If an SNS subscription was configured during deploy, show the notification that was produced.
+
+### Suggested demo narration
+
+- `We start from a clean baseline with the stack deployed and domain knowledge loaded.`
+- `I inject a synthetic cloud incident into EventBridge.`
+- `The triage Lambda gathers context and Bedrock decides on the safest action from the allowlist.`
+- `Because this stack is in safe mode, it records the incident and publishes the recommendation path instead of mutating live infrastructure.`
+- `The system writes the outcome back to the knowledge base so the next incident starts with more memory.`
+
+### What success looks like
+
+The demo is successful if you can show:
+
+- the synthetic event was accepted
+- a Step Functions execution started
+- the workflow completed successfully
+- a new incident record appeared in DynamoDB
+- a new artifact appeared in S3
+
+### Optional live commands for verification
+
+List recent workflow executions:
+
+```bash
+aws stepfunctions list-executions \
+  --state-machine-arn YOUR_STATE_MACHINE_ARN \
+  --profile YOUR_PROFILE \
+  --region YOUR_REGION \
+  --max-results 5
+```
+
+Count current incident records:
+
+```bash
+aws dynamodb scan \
+  --table-name YOUR_INCIDENT_TABLE_NAME \
+  --profile YOUR_PROFILE \
+  --region YOUR_REGION \
+  --select COUNT
+```
+
+List reasoning artifacts:
+
+```bash
+aws s3 ls s3://YOUR_KNOWLEDGE_BUCKET/incidents/reasoning/ \
+  --profile YOUR_PROFILE \
+  --region YOUR_REGION
+```
+
 ### What to commit
 
 Yes, you can check this code into GitHub for teammates to use in their own AWS accounts.
