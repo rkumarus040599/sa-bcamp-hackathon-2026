@@ -112,6 +112,16 @@ cdk diff --profile YOUR_PROFILE
 cdk destroy --profile YOUR_PROFILE
 ```
 
+### Tear everything down
+
+To remove the deployed demo stack and stop ongoing AWS charges, run:
+
+```bash
+./scripts/destroy_hackathon_resources.sh --profile YOUR_PROFILE --region YOUR_REGION
+```
+
+That removes the main `AutonomousOpsPhaseOneStack` resources. If you also want to remove the shared CDK bootstrap stack and you are sure no other CDK apps use it, add `--include-bootstrap`.
+
 ## Run the deployed demo
 
 After the phase-1 stack is deployed, teammates can run the same demo flow in their own AWS accounts.
