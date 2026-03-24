@@ -1,0 +1,17 @@
+ Demo Steps
+
+1) CloudFormation stack.  PhaseOneMode = notify-only-safe-mode : 
+   “This is a safe deployment proving the AI operations loop before we allow live remediation.”
+
+2) S3 bucket has existing runbook object.: “This is the domain knowledge the system starts with.”
+
+3) In terminal, from the repo root, trigger the incident with:
+
+   “The incident hit EventBridge, Lambda triaged it, and the workflow started.”
+
+4) In Step Functions execution details: “The system received the incident, ran the decision logic, and because this deployment is in safe mode, it took the guarded notify/recommend path instead of changing infrastructure.”
+
+
+5) S3 bucket has a new artifact under incidents/reasoning/.: “The outcome is written back to the knowledge base so future runs have more context.”
+
+

@@ -1,11 +1,8 @@
-{
-  "Entries": [
-    {
-      "Source": "hackathon.autonomous-ops",
-      "DetailType": "SyntheticIncidentDetected",
-      "EventBusName": "autonomous-ops-demo",
-      "Detail": "{\"alarmName\":\"demo-app-cpu-high\",\"service\":\"orders-api\",\"environment\":\"hackathon\",\"incidentType\":\"cpu_spike\",\"state\":\"ALARM\",\"reason\":\"Synthetic load pushed CPU above threshold.\",\"autoScalingGroupName\":\"orders-api-asg\",\"logGroupName\":\"/aws/ec2/orders-api/app\",\"metricNamespace\":\"AWS/EC2\",\"metricName\":\"CPUUtilization\",\"dimensionName\":\"AutoScalingGroupName\",\"dimensionValue\":\"orders-api-asg\"}"
-    }
-  ]
-}
-
+[
+  {
+    "Source": "hackathon.autonomous-ops",
+    "DetailType": "SyntheticIncidentDetected",
+    "EventBusName": "autonomous-ops-demo",
+    "Detail": "{\"alarmName\":\"demo-app-cpu-high\",\"service\":\"orders-api\",\"environment\":\"hackathon\",\"incidentType\":\"cpu_spike\",\"state\":\"ALARM\",\"reason\":\"Synthetic load pushed CPU above threshold.\",\"autoScalingGroupName\":\"orders-api-asg\",\"logGroupName\":\"/aws/ec2/orders-api/app\",\"metricNamespace\":\"AWS/EC2\",\"metricName\":\"CPUUtilization\",\"dimensionName\":\"AutoScalingGroupName\",\"dimensionValue\":\"orders-api-asg\"}"
+  }
+]
