@@ -18,4 +18,3 @@ AutonomousOpsPhaseOneStack(
 )
 
 app.synth()
-

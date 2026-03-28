@@ -19,7 +19,13 @@
     "projectName": "autonomous-ops-demo",
     "eventBusName": "autonomous-ops-demo",
     "foundationModelId": "openai.gpt-oss-120b-1:0",
-    "enableLiveRemediation": "false"
+    "enableLiveRemediation": "false",
+    "deployDemoAppTier": "false",
+    "demoAutoScalingGroupName": "orders-api-asg",
+    "demoInstanceType": "t3.micro",
+    "demoMinCapacity": "1",
+    "demoDesiredCapacity": "1",
+    "demoMaxCapacity": "3",
+    "@aws-cdk/aws-autoscaling:desiredCapacitySet": true
   }
 }
-

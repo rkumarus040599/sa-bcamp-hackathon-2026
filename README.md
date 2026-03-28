@@ -10,6 +10,9 @@ The current concept is an agentic AI system that behaves like a virtual cloud en
 - `docs/`: working docs for the brief, architecture, prompts, and runbooks
 - `docs/demo-scenario.md`: the current hackathon demo storyline
 - `docs/implementation/`: polished demo flow, service mapping, and implementation guidance
+- `docs/implementation/aws-pipeline-flow.md`: the end-to-end AWS event pipeline flowchart for the deployed demo
+- `docs/implementation/judge-slide-flow.md`: the simplified one-slide version for judges and short demos
+- `docs/implementation/prestaged-remediation-runbook.md`: the click-by-click runbook for the pre-executed remediation demo
 - `templates/`: reusable templates for ADRs and demo prep
 - `infra/`: a landing zone for IaC, deployment notes, and environment setup
 - `infra/cdk/`: the AWS CDK v2 app for the phase-1 deployable demo
@@ -23,7 +26,7 @@ The current concept is an agentic AI system that behaves like a virtual cloud en
 2. Review [`docs/brief.md`](./docs/brief.md) for the current problem statement, users, and expected solution.
 3. Refine the technical approach in [`docs/architecture/solution-outline.md`](./docs/architecture/solution-outline.md).
 4. Use [`docs/demo-scenario.md`](./docs/demo-scenario.md) to keep the build aligned to the story we will show judges.
-5. Use [`docs/implementation/demo-flow.md`](./docs/implementation/demo-flow.md) and [`docs/implementation/service-mapping.md`](./docs/implementation/service-mapping.md) as the build blueprint.
+5. Use [`docs/implementation/demo-flow.md`](./docs/implementation/demo-flow.md), [`docs/implementation/service-mapping.md`](./docs/implementation/service-mapping.md), [`docs/implementation/aws-pipeline-flow.md`](./docs/implementation/aws-pipeline-flow.md), [`docs/implementation/judge-slide-flow.md`](./docs/implementation/judge-slide-flow.md), and [`docs/implementation/prestaged-remediation-runbook.md`](./docs/implementation/prestaged-remediation-runbook.md) as the build and rehearsal blueprint.
 6. Drop updated diagrams into [`arch-diagrams/`](./arch-diagrams/).
 7. Preview the starter project hub by opening [`apps/hackathon-hub/index.html`](./apps/hackathon-hub/index.html) in a browser.
 
@@ -83,10 +86,21 @@ cdk deploy --profile YOUR_PROFILE \
   -c enableLiveRemediation=false
 ```
 
+To deploy the tiny demo app tier that the agent can later scale from `1` to `3`, use:
+
+```bash
+cdk deploy --profile YOUR_PROFILE \
+  -c deployDemoAppTier=true \
+  -c enableLiveRemediation=true
+```
+
 Notes:
 
 - `foundationModelId` is configurable because Bedrock model availability can vary by account and region.
 - `enableLiveRemediation=false` is the default and is the recommended phase-1 setting.
+- `deployDemoAppTier=false` is the default so teammates do not incur EC2 charges unless they explicitly opt in.
+- The optional demo app tier provisions an SSM-enabled `t3.micro` Auto Scaling Group named `orders-api-asg` with `min=1`, `desired=1`, and `max=3`.
+- The demo app-tier deploy path creates a small public-only VPC with no NAT gateway, so it works even in accounts without a default VPC.
 - The stack is account-agnostic, so teammates can deploy it to their own AWS accounts after cloning the repo.
 
 ### Send a synthetic incident
@@ -125,6 +139,12 @@ That removes the main `AutonomousOpsPhaseOneStack` resources. If you also want t
 ## Run the deployed demo
 
 After the phase-1 stack is deployed, teammates can run the same demo flow in their own AWS accounts.
+
+For the polished judge-facing version where you pre-run a real remediation and then walk through the evidence, use [`docs/implementation/prestaged-remediation-runbook.md`](./docs/implementation/prestaged-remediation-runbook.md).
+
+For a simple end-to-end view of how the incident moves through AWS services, open [`docs/implementation/aws-pipeline-flow.md`](./docs/implementation/aws-pipeline-flow.md).
+
+For a single-slide, judge-friendly version with fewer boxes and a short speaking track, open [`docs/implementation/judge-slide-flow.md`](./docs/implementation/judge-slide-flow.md).
 
 ### What the phase-1 demo proves
 

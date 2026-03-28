@@ -1,0 +1,25 @@
+direction right
+colorMode bold
+styleMode plain
+typeface clean
+
+Detect [label: "1. Detect\nCloudWatch Alarm", icon: aws-cloudwatch, color: red]
+Reason [label: "2. Reason\nLambda + Bedrock", icon: aws-bedrock, color: blue]
+Remediate [label: "3. Remediate\nStep Functions + ASG", icon: aws-step-functions, color: green]
+VerifyLearn [label: "4. Verify + Learn\nLambda + DynamoDB/S3", icon: aws-dynamodb, color: purple]
+
+Incident [label: "Incident Payload", icon: aws-eventbridge, color: orange, colorMode: outline]
+Telemetry [label: "Telemetry\nCloudWatch + ASG + CloudTrail", icon: aws-cloudwatch, color: blue, colorMode: outline]
+Knowledge [label: "Knowledge Base\nS3 Runbooks + DynamoDB History", icon: aws-s3, color: purple, colorMode: outline]
+Policy [label: "Policy\nSystem Prompt + Allowed Actions", icon: aws-lambda, color: gray, colorMode: outline]
+TrustBoundary [label: "Bedrock recommends. Lambda validates. Step Functions executes.", color: gray, colorMode: outline]
+
+Detect > Reason: Alarm
+Reason > Remediate: Approved action
+Remediate > VerifyLearn: Recovery result
+
+Incident > Reason
+Telemetry > Reason
+Knowledge > Reason
+Policy > Reason
+Reason -- TrustBoundary

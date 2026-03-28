@@ -10,6 +10,7 @@ This folder contains the AWS CDK v2 app for the phase-1 hackathon demo.
 - DynamoDB table for incident history
 - S3 bucket for domain knowledge and reasoning artifacts
 - SNS topic for operator notifications
+- Optional demo EC2 Auto Scaling Group app tier for live scale-out remediation rehearsals
 
 ## Safe default
 
@@ -26,3 +27,36 @@ cdk deploy \
   --profile YOUR_PROFILE \
   -c enableLiveRemediation=true
 ```
+
+To provision the demo app tier as well, deploy with:
+
+```bash
+cdk deploy \
+  --profile YOUR_PROFILE \
+  -c deployDemoAppTier=true \
+  -c enableLiveRemediation=true
+```
+
+Demo app-tier defaults:
+
+- Auto Scaling Group name: `orders-api-asg`
+- instance type: `t3.micro`
+- min capacity: `1`
+- desired capacity: `1`
+- max capacity: `3`
+
+You can override those values with:
+
+```bash
+cdk deploy \
+  --profile YOUR_PROFILE \
+  -c deployDemoAppTier=true \
+  -c enableLiveRemediation=true \
+  -c demoAutoScalingGroupName=orders-api-asg \
+  -c demoInstanceType=t3.micro \
+  -c demoMinCapacity=1 \
+  -c demoDesiredCapacity=1 \
+  -c demoMaxCapacity=3
+```
+
+The app-tier path creates a small public-only demo VPC with no NAT gateway so it does not depend on a default VPC in the target account.

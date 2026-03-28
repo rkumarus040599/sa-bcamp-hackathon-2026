@@ -31,10 +31,11 @@ SYSTEM_PROMPT = (HERE / "system_prompt.txt").read_text().strip()
 
 def handler(event, context):
     incident = parse_incident_event(event)
-    telemetry = collect_incident_context(incident)
-    knowledge = collect_knowledge_context(incident)
+    telemetry = make_json_safe(collect_incident_context(incident))
+    knowledge = make_json_safe(collect_knowledge_context(incident))
     decision = ask_bedrock_for_decision(incident, telemetry, knowledge)
     decision = validate_decision(decision, incident)
+    decision = apply_scale_out_override(decision, incident, telemetry)
 
     record = {
         "incident": incident,
@@ -140,32 +141,38 @@ def ask_bedrock_for_decision(incident, telemetry, knowledge):
         "actionCatalog": ACTION_CATALOG["actions"]
     }
 
-    response = bedrock_runtime.converse(
-        modelId=FOUNDATION_MODEL_ID,
-        system=[{"text": SYSTEM_PROMPT}],
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "text": json.dumps(payload)
-                    }
-                ]
+    try:
+        response = bedrock_runtime.converse(
+            modelId=FOUNDATION_MODEL_ID,
+            system=[{"text": SYSTEM_PROMPT}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "text": json.dumps(payload)
+                        }
+                    ]
+                }
+            ],
+            inferenceConfig={
+                "temperature": 0.1,
+                "topP": 0.9,
+                "maxTokens": 1200
             }
-        ],
-        inferenceConfig={
-            "temperature": 0.1,
-            "topP": 0.9,
-            "maxTokens": 1200
-        }
-    )
+        )
 
-    model_text = "".join(
-        block.get("text", "")
-        for block in response["output"]["message"]["content"]
-        if "text" in block
-    )
-    return extract_json_payload(model_text)
+        model_text = "".join(
+            block.get("text", "")
+            for block in response["output"]["message"]["content"]
+            if "text" in block
+        )
+        return extract_json_payload(model_text)
+    except Exception as exc:
+        return notify_only_decision(
+            f"Bedrock response could not be used directly: {exc}",
+            incident=incident
+        )
 
 
 def validate_decision(decision, incident):
@@ -225,6 +232,56 @@ def notify_only_decision(reason, incident=None):
             "parameters": parameters,
             "requiresApproval": False
         }
+    }
+
+
+def apply_scale_out_override(decision, incident, telemetry):
+    if incident.get("metricName") != "CPUUtilization":
+        return decision
+
+    action = decision.get("action", {})
+    if action.get("type") == "scale_out_asg":
+        return decision
+
+    metric_values = latest_metric_values(telemetry)
+    if not sustained_cpu_spike(metric_values):
+        return decision
+
+    auto_scaling_state = telemetry.get("autoScaling", {})
+    if not isinstance(auto_scaling_state, dict):
+        return decision
+
+    desired_capacity = int(auto_scaling_state.get("DesiredCapacity", 0) or 0)
+    max_capacity = int(auto_scaling_state.get("MaxSize", desired_capacity) or desired_capacity)
+    target_capacity = min(max_capacity, max(desired_capacity + 2, 3))
+
+    if target_capacity <= desired_capacity or not incident.get("autoScalingGroupName"):
+        return decision
+
+    latest_cpu = metric_values[0]
+    return {
+        "summary": (
+            f"Sustained CPU spike detected at {latest_cpu:.2f}%. "
+            f"Override selected a safe scale-out remediation."
+        ),
+        "diagnosis": (
+            "Recent ASG CPU telemetry indicates real saturation while spare "
+            "capacity is available, so the guardrail selected scale_out_asg."
+        ),
+        "confidence": max(float(decision.get("confidence", 0)), 0.98),
+        "action": {
+            "type": "scale_out_asg",
+            "reason": (
+                "Telemetry-based override for sustained high CPU on the application "
+                "Auto Scaling Group."
+            ),
+            "parameters": {
+                "autoScalingGroupName": incident["autoScalingGroupName"],
+                "desiredCapacity": target_capacity,
+                "recoveryThreshold": 65,
+            },
+            "requiresApproval": False,
+        },
     }
 
 
@@ -378,6 +435,26 @@ def extract_json_payload(model_text):
     return json.loads(content)
 
 
+def latest_metric_values(telemetry):
+    metrics = telemetry.get("metrics", [])
+    if not metrics or not isinstance(metrics[0], dict):
+        return []
+    values = metrics[0].get("Values", [])
+    return [
+        float(value)
+        for value in values
+        if isinstance(value, (int, float))
+    ]
+
+
+def sustained_cpu_spike(values):
+    if len(values) >= 2 and values[0] >= 70 and values[1] >= 70:
+        return True
+    if values and values[0] >= 90:
+        return True
+    return False
+
+
 def safe_call(fn):
     try:
         return fn()
@@ -385,6 +462,21 @@ def safe_call(fn):
         return {
             "error": str(exc)
         }
+
+
+def make_json_safe(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {
+            key: make_json_safe(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [make_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [make_json_safe(item) for item in value]
+    return value
 
 
 def timestamp():

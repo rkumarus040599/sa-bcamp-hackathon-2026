@@ -7,7 +7,10 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     Stack,
+    aws_autoscaling as autoscaling,
+    aws_cloudwatch as cloudwatch,
     aws_dynamodb as dynamodb,
+    aws_ec2 as ec2,
     aws_events as events,
     aws_events_targets as targets,
     aws_iam as iam,
@@ -35,6 +38,12 @@ class DemoConfig:
     foundation_model_id: str
     notification_email: Optional[str]
     enable_live_remediation: bool
+    deploy_demo_app_tier: bool
+    demo_auto_scaling_group_name: str
+    demo_instance_type: str
+    demo_min_capacity: int
+    demo_desired_capacity: int
+    demo_max_capacity: int
 
 
 class AutonomousOpsPhaseOneStack(Stack):
@@ -49,7 +58,17 @@ class AutonomousOpsPhaseOneStack(Stack):
             ),
             notification_email=self.node.try_get_context("notificationEmail"),
             enable_live_remediation=context_bool(self, "enableLiveRemediation", default=False),
+            deploy_demo_app_tier=context_bool(self, "deployDemoAppTier", default=False),
+            demo_auto_scaling_group_name=(
+                self.node.try_get_context("demoAutoScalingGroupName") or "orders-api-asg"
+            ),
+            demo_instance_type=self.node.try_get_context("demoInstanceType") or "t3.micro",
+            demo_min_capacity=context_int(self, "demoMinCapacity", default=1),
+            demo_desired_capacity=context_int(self, "demoDesiredCapacity", default=1),
+            demo_max_capacity=context_int(self, "demoMaxCapacity", default=3),
         )
+
+        validate_demo_capacity(config)
 
         incident_table = dynamodb.Table(
             self,
@@ -133,6 +152,40 @@ class AutonomousOpsPhaseOneStack(Stack):
             tracing_enabled=True,
         )
 
+        demo_auto_scaling_group_name = ""
+        demo_cpu_alarm_name = ""
+        demo_cpu_alarm = None
+        if config.deploy_demo_app_tier:
+            demo_auto_scaling_group = build_demo_app_tier(self, config)
+            demo_auto_scaling_group_name = demo_auto_scaling_group.auto_scaling_group_name
+
+            demo_cpu_alarm = cloudwatch.Alarm(
+                self,
+                "DemoHighCpuAlarm",
+                alarm_name=f"{config.demo_auto_scaling_group_name}-cpu-high",
+                alarm_description=(
+                    "Demo CPU alarm for the autonomous ops application tier. "
+                    "Use this when rehearsing the real alarm-driven path."
+                ),
+                metric=cloudwatch.Metric(
+                    namespace="AWS/EC2",
+                    metric_name="CPUUtilization",
+                    dimensions_map={
+                        "AutoScalingGroupName": config.demo_auto_scaling_group_name,
+                    },
+                    statistic="Average",
+                    period=Duration.minutes(1),
+                ),
+                threshold=70,
+                evaluation_periods=2,
+                datapoints_to_alarm=2,
+                treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING,
+                comparison_operator=(
+                    cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD
+                ),
+            )
+            demo_cpu_alarm_name = demo_cpu_alarm.alarm_name
+
         triage_log_group = logs.LogGroup(
             self,
             "TriageAgentLogGroup",
@@ -156,7 +209,7 @@ class AutonomousOpsPhaseOneStack(Stack):
                 "REMEDIATION_STATE_MACHINE_ARN": state_machine.state_machine_arn,
                 "FOUNDATION_MODEL_ID": config.foundation_model_id,
                 "ALLOW_LIVE_REMEDIATION": str(config.enable_live_remediation).lower(),
-                "DEFAULT_ASG_NAME": "",
+                "DEFAULT_ASG_NAME": demo_auto_scaling_group_name,
                 "DEFAULT_LOG_GROUP_NAME": "",
             },
         )
@@ -178,6 +231,23 @@ class AutonomousOpsPhaseOneStack(Stack):
             ),
             targets=[targets.LambdaFunction(triage_function)],
         )
+
+        if demo_cpu_alarm is not None:
+            events.Rule(
+                self,
+                "CloudWatchAlarmIncidentRule",
+                description=(
+                    "Routes the demo CPU alarm into the autonomous ops flow when the "
+                    "alarm transitions into ALARM."
+                ),
+                event_pattern=events.EventPattern(
+                    source=["aws.cloudwatch"],
+                    detail_type=["CloudWatch Alarm State Change"],
+                    resources=[demo_cpu_alarm.alarm_arn],
+                    detail={"state": {"value": ["ALARM"]}},
+                ),
+                targets=[targets.LambdaFunction(triage_function)],
+            )
 
         incident_table.grant_read_write_data(triage_function)
         incident_table.grant_read_write_data(verifier_function)
@@ -217,6 +287,10 @@ class AutonomousOpsPhaseOneStack(Stack):
         CfnOutput(self, "IncidentTableName", value=incident_table.table_name)
         CfnOutput(self, "StateMachineArn", value=state_machine.state_machine_arn)
         CfnOutput(self, "TriageFunctionName", value=triage_function.function_name)
+        if demo_auto_scaling_group_name:
+            CfnOutput(self, "DemoAutoScalingGroupName", value=demo_auto_scaling_group_name)
+        if demo_cpu_alarm_name:
+            CfnOutput(self, "DemoCpuAlarmName", value=demo_cpu_alarm_name)
         CfnOutput(
             self,
             "PhaseOneMode",
@@ -339,6 +413,110 @@ def build_state_machine_definition(
         publish_recommendation.next(sfn.Succeed(scope, "NotificationDelivered"))
     )
     return root_choice
+
+
+def build_demo_app_tier(
+    scope: Construct,
+    config: DemoConfig,
+) -> autoscaling.AutoScalingGroup:
+    vpc = ec2.Vpc(
+        scope,
+        "DemoAppVpc",
+        max_azs=2,
+        nat_gateways=0,
+        subnet_configuration=[
+            ec2.SubnetConfiguration(
+                name="Public",
+                subnet_type=ec2.SubnetType.PUBLIC,
+                cidr_mask=24,
+            )
+        ],
+    )
+
+    instance_role = iam.Role(
+        scope,
+        "DemoAppInstanceRole",
+        assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
+        managed_policies=[
+            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"),
+        ],
+    )
+
+    security_group = ec2.SecurityGroup(
+        scope,
+        "DemoAppSecurityGroup",
+        vpc=vpc,
+        allow_all_outbound=True,
+        description="Security group for the autonomous ops demo application tier.",
+    )
+
+    user_data = ec2.UserData.for_linux()
+    user_data.add_commands(
+        "mkdir -p /opt/autonomous-ops-demo",
+        "cat <<'EOF' >/opt/autonomous-ops-demo/start-cpu-burn.sh",
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "for _ in 1 2; do",
+        "  nohup bash -c 'while true; do :; done' >/var/log/autonomous-ops-cpu-burn.log 2>&1 &",
+        "done",
+        "EOF",
+        "cat <<'EOF' >/opt/autonomous-ops-demo/stop-cpu-burn.sh",
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "pkill -f \"while true; do :; done\" || true",
+        "EOF",
+        "cat <<'EOF' >/opt/autonomous-ops-demo/README.txt",
+        "Autonomous Ops demo app tier",
+        "- start CPU burn: /opt/autonomous-ops-demo/start-cpu-burn.sh",
+        "- stop CPU burn: /opt/autonomous-ops-demo/stop-cpu-burn.sh",
+        "EOF",
+        "chmod +x /opt/autonomous-ops-demo/start-cpu-burn.sh",
+        "chmod +x /opt/autonomous-ops-demo/stop-cpu-burn.sh",
+    )
+
+    launch_template = ec2.LaunchTemplate(
+        scope,
+        "DemoAppLaunchTemplate",
+        launch_template_name=f"{config.demo_auto_scaling_group_name}-lt",
+        machine_image=ec2.MachineImage.latest_amazon_linux2023(
+            cpu_type=ec2.AmazonLinuxCpuType.X86_64,
+        ),
+        instance_type=ec2.InstanceType(config.demo_instance_type),
+        role=instance_role,
+        security_group=security_group,
+        user_data=user_data,
+        detailed_monitoring=True,
+    )
+
+    return autoscaling.AutoScalingGroup(
+        scope,
+        "DemoAppAutoScalingGroup",
+        auto_scaling_group_name=config.demo_auto_scaling_group_name,
+        vpc=vpc,
+        vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+        launch_template=launch_template,
+        min_capacity=config.demo_min_capacity,
+        desired_capacity=config.demo_desired_capacity,
+        max_capacity=config.demo_max_capacity,
+        ignore_unmodified_size_properties=True,
+        health_checks=autoscaling.HealthChecks.ec2(
+            grace_period=Duration.minutes(3),
+        ),
+    )
+
+
+def validate_demo_capacity(config: DemoConfig) -> None:
+    if config.demo_min_capacity > config.demo_desired_capacity:
+        raise ValueError("demoMinCapacity cannot be greater than demoDesiredCapacity.")
+    if config.demo_desired_capacity > config.demo_max_capacity:
+        raise ValueError("demoDesiredCapacity cannot be greater than demoMaxCapacity.")
+
+
+def context_int(scope: Construct, name: str, default: int) -> int:
+    raw_value = scope.node.try_get_context(name)
+    if raw_value is None:
+        return default
+    return int(raw_value)
 
 
 def context_bool(scope: Construct, name: str, default: bool = False) -> bool:
